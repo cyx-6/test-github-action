@@ -19,7 +19,7 @@ jobs:
       - run: |
           df . -h
           dnf -y install wget
-          wget https://developer.download.nvidia.com/compute/cuda/13.0.2/local_installers/cuda-repo-rhel8-13-0-local-13.0.2_580.95.05-1.x86_64.rpm
+          wget https://developer.download.nvidia.com/compute/cuda/13.0.2/local_installers/cuda-repo-rhel8-13-0-local-13.0.2_580.95.05-1.x86_64.rpm > /dev/null 2>&1
           rpm -i cuda-repo-rhel8-13-0-local-13.0.2_580.95.05-1.x86_64.rpm
           dnf clean all
           dnf -y install cuda-toolkit-13-0
