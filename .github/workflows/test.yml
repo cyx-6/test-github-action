@@ -51,20 +51,18 @@ jobs:
     runs-on: ubuntu-latest${{ matrix.arch == 'aarch64' && '-arm64' || '' }}
     container: quay.io/pypa/manylinux_2_28_${{ matrix.arch }}
     steps:
-      - uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: false
-      - name: install cuda toolkit
-        run: |
-          df . -h
-          dnf -y install wget
-          wget https://developer.download.nvidia.com/compute/cuda/13.0.2/local_installers/cuda-repo-rhel8-13-0-local-13.0.2_580.95.05-1.${{ matrix.arch }}.rpm > /dev/null 2>&1
-          rpm -i cuda-repo-rhel8-13-0-local-13.0.2_580.95.05-1.${{ matrix.arch }}.rpm
-          dnf clean all
-          dnf -y install cuda-toolkit-13-0
-          rm -f cuda-repo-rhel8-13-0-local-13.0.2_580.95.05-1.${{ matrix.arch }}.rpm
-          df . -h
+      # - name: install cuda toolkit
+      #   run: |
+      #     df . -h
+      #     dnf -y install wget
+      #     wget https://developer.download.nvidia.com/compute/cuda/13.0.2/local_installers/cuda-repo-rhel8-13-0-local-13.0.2_580.95.05-1.${{ matrix.arch }}.rpm > /dev/null 2>&1
+      #     rpm -i cuda-repo-rhel8-13-0-local-13.0.2_580.95.05-1.${{ matrix.arch }}.rpm
+      #     dnf clean all
+      #     dnf -y install cuda-toolkit-13-0
+      #     rm -f cuda-repo-rhel8-13-0-local-13.0.2_580.95.05-1.${{ matrix.arch }}.rpm
+      #     df . -h
       - name: install torch
         run: |
+          df . -h
           /opt/python/${{ matrix.python-version }}-${{ matrix.python-version }}/bin/pip3 install torch==${{ matrix.torch-version }} --index-url https://download.pytorch.org/whl/${{ matrix.cuda-version }}
           df . -h
