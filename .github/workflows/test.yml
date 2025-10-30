@@ -12,32 +12,23 @@ on:
       - main
 
 jobs:
-  x86_64:
-    runs-on: [ubuntu-latest]
+  build_libs:
     strategy:
-      fail-fast: false
+      matrix:
+        arch: ["x86_64", "aarch64"]
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm64' || 'ubuntu-latest' }}
     steps:
-      - uses: jlumbroso/free-disk-space@main
+      # - uses: jlumbroso/free-disk-space@main
+      #   if: ${{ matrix.arch == 'x86_64'}}
+      - uses: actions/checkout@v5
         with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: false
-      - run: |
-          df -h
-          docker pull quay.io/pypa/manylinux_2_28_x86_64:latest
-          docker run --rm quay.io/pypa/manylinux_2_28_x86_64:latest df -h
-  aarch64:
-    runs-on: [ubuntu-24.04-arm]
-    strategy:
-      fail-fast: false
-    steps:
-      - uses: jlumbroso/free-disk-space@main
-        with:
-          # this might remove tools that are actually needed,
-          # if set to "true" but frees about 6 GB
-          tool-cache: false
-      - run: |
-          df -h
-          docker pull quay.io/pypa/manylinux_2_28_aarch64:latest
-          docker run --rm quay.io/pypa/manylinux_2_28_aarch64:latest df -h
+          repository: apache/tvm-ffi
+          ref: main
+          fetch-depth: 0
+          submodules: recursive
+      - name: prepare docker environment
+        run: |
+          pwd
+          ls
+          ls ..
 
