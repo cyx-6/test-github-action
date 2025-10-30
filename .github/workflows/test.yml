@@ -12,9 +12,19 @@ on:
       - main
 
 jobs:
-  build_libs:
+  test:
     runs-on: ubuntu-latest
     container: quay.io/pypa/manylinux_2_28_x86_64
     steps:
       - run: |
           df . -h
+          dnf -y install wget
+          wget https://developer.download.nvidia.com/compute/cuda/13.0.2/local_installers/cuda-repo-rhel8-13-0-local-13.0.2_580.95.05-1.x86_64.rpm
+          rpm -i cuda-repo-rhel8-13-0-local-13.0.2_580.95.05-1.x86_64.rpm
+          dnf clean all
+          dnf -y install cuda-toolkit-13-0
+          rm -f cuda-repo-rhel8-13-0-local-13.0.2_580.95.05-1.x86_64.rpm
+          df . -h
+          /opt/python/cp312-cp312/bin/pip3 install torch==2.9 --index-url https://download.pytorch.org/whl/cu130
+          df . -h
+          
