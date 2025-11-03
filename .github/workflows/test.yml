@@ -16,19 +16,12 @@ jobs:
     strategy:
       matrix:
         arch: ["x86_64", "aarch64"]
-    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm64' || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     steps:
-      # - uses: jlumbroso/free-disk-space@main
-      #   if: ${{ matrix.arch == 'x86_64'}}
       - uses: actions/checkout@v5
         with:
           repository: apache/tvm-ffi
           ref: main
           fetch-depth: 0
           submodules: recursive
-      - name: prepare docker environment
-        run: |
-          pwd
-          ls
-          ls ..
-
+          path: tvm-ffi
