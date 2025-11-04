@@ -32,4 +32,4 @@ jobs:
           docker cp tvm-ffi build_lib:/tvm-ffi
       - name: build torch libs
         run: |
-          docker exec build_lib -w /tvm-ffi bash ./addons/torch_c_dlpack_ext/build_aot_libs.sh
+          docker exec -w /tvm-ff build_libi bash ./addons/torch_c_dlpack_ext/build_aot_libs.sh
