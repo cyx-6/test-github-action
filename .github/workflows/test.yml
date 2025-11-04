@@ -25,6 +25,11 @@ jobs:
           fetch-depth: 0
           submodules: recursive
           path: tvm-ffi
+      - name: prepare docker environment
+        run: |
+          docker pull quay.io/pypa/manylinux_2_28_${{ matrix.arch }}:latest
+          docker run --name build_lib -d quay.io/pypa/manylinux_2_28_${{ matrix.arch }}:latest tail -f /dev/null
+          docker cp tvm-ffi build_lib:/tvm-ffi
       - name: build torch libs
         run: |
           docker exec build_lib cd /tvm-ffi && ls && bash ./addons/torch_c_dlpack_ext/build_aot_libs.sh
