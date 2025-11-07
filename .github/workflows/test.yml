@@ -28,7 +28,8 @@ jobs:
       - run: |
           dir C:\
           dir D:\
-          Get-CimInstance -ClassName Win32_diskdrive | Select-Object DeviceID,FreeSpace,Size | Format-Table -AutoSize
+          Get-CimInstance -ClassName Win32_diskdrive | Select-Object DeviceID,FreeSpace,Size
+          Get-WmiObject -Class Win32_LogicalDisk -ComputerName LOCALHOST | ? {$_. DriveType -eq 3} | select DeviceID, {[int]($_.Size /1GB)}, {[int]($_.FreeSpace /1GB)}
       # - name: prepare docker environment
       #   run: |
       #     docker pull quay.io/pypa/manylinux_2_28_${{ matrix.arch }}:latest
