@@ -27,4 +27,4 @@ jobs:
           path: tvm-ffi
       - name: build libs
         shell: cmd
-        run: ./tvm-ffi/addons/torch_c_dlpack_ext/build_aot_wheels.bat
+        run: ./tvm-ffi/addons/torch_c_dlpack_ext/build_aot_wheels.bat ${{ matrix.arch }} ${{ matrix.python-version }}
