@@ -25,12 +25,12 @@ jobs:
           fetch-depth: 0
           submodules: recursive
           path: tvm-ffi
-      - uses: Jimver/cuda-toolkit@master
-        id: cuda-toolkit
+      # - uses: Jimver/cuda-toolkit@master
+      #   id: cuda-toolkit
       - uses: astral-sh/setup-uv@v7
       - name: build wheels
-        env:
-          CUDA_HOME: ${{steps.cuda-toolkit.outputs.CUDA_PATH}}
+        # env:
+        #   CUDA_HOME: ${{steps.cuda-toolkit.outputs.CUDA_PATH}}
         shell: cmd
         working-directory: ./tvm-ffi
         run: ./addons/torch_c_dlpack_ext/build_aot_wheels.bat ${{ matrix.arch }} ${{ matrix.python-version }}
