@@ -10,7 +10,7 @@ on:
   push:
 
 jobs:
-  build_libs:
+  build_wheels_windows:
     strategy:
       fail-fast: false
       matrix:
@@ -25,7 +25,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
           path: tvm-ffi
-      - uses: Jimver/cuda-toolkit@master
+      - uses: Jimver/cuda-toolkit@6008063726ffe3309d1b22e413d9e88fed91a2f2
         id: cuda-toolkit
       - uses: astral-sh/setup-uv@v7
       - name: build wheels
@@ -34,3 +34,55 @@ jobs:
         shell: cmd
         working-directory: ./tvm-ffi
         run: ./addons/torch_c_dlpack_ext/build_aot_wheels.bat ${{ matrix.arch }} ${{ matrix.python-version }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pypi-wheels-${{ matrix.arch }}-${{ matrix.python-version }}
+          path: ./tvm-ffi/wheelhouse/*.whl
+  build_source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: apache/tvm-ffi
+          ref: main
+          fetch-depth: 0
+          submodules: recursive
+          path: tvm-ffi
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          activate-environment: true
+      - name: build source
+        run: |
+          uv pip install build
+          cd ./tvm-ffi/addons/torch_c_dlpack_ext
+          python -m build -s
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pypi-source
+          path: ./tvm-ffi/addons/torch_c_dlpack_ext/dist/*tar.gz
+  upload_pypi:
+    needs: [build_wheels_windows, build_source]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      attestations: write
+    if: github.event_name == 'workflow_dispatch'   # <-- publish only on manual trigger
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: pypi-*
+          path: dist
+          merge-multiple: true
+      - name: Generate artifact attestation for sdist and wheels
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: dist/*
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          attestations: true
+          verbose: true
+          # testing publish url
+          # repository-url: https://test.pypi.org/legacy/
