@@ -19,10 +19,13 @@ jobs:
     steps:
       - name: install and collect Linux orc_rt libs
         run: |
-          # wget https://apt.llvm.org/llvm.sh
-          # chmod +x llvm.sh
-          sudo apt-get update
-          sudo apt-get install -y clang-18 clang-19 clang-20 clang-21 clang-22
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo bash ./llvm.sh 18
+          sudo bash ./llvm.sh 19
+          sudo bash ./llvm.sh 20
+          sudo bash ./llvm.sh 21
+          sudo bash ./llvm.sh 22
           mkdir output
           cp /usr/lib/llvm-18/lib/clang/18/lib/linux/liborc_rt-x86_64.a output/18-liborc_rt-x86_64.a
           cp /usr/lib/llvm-19/lib/clang/19/lib/linux/liborc_rt-x86_64.a output/19-liborc_rt-x86_64.a
@@ -42,10 +45,10 @@ jobs:
         run: |
           brew install llvm@18 llvm@19 llvm@20 llvm@21
           mkdir output
-          cp /opt/homebrew/Cellar/llvm@18/18*/lib/clang/18/lib/darwin/liborc_rt_osx.a output/18-liborc_rt_osx.a
-          cp /opt/homebrew/Cellar/llvm@19/19*/lib/clang/19/lib/darwin/liborc_rt_osx.a output/19-liborc_rt_osx.a
-          cp /opt/homebrew/Cellar/llvm@20/20*/lib/clang/20/lib/darwin/liborc_rt_osx.a output/20-liborc_rt_osx.a
-          cp /opt/homebrew/Cellar/llvm@21/21*/lib/clang/21/lib/darwin/liborc_rt_osx.a output/21-liborc_rt_osx.a
+          cp $(/opt/homebrew/opt/llvm@18/bin/clang -print-runtime-dir)/liborc_rt_osx.a output/18-liborc_rt_osx.a
+          cp $(/opt/homebrew/opt/llvm@19/bin/clang -print-runtime-dir)/liborc_rt_osx.a output/19-liborc_rt_osx.a
+          cp $(/opt/homebrew/opt/llvm@20/bin/clang -print-runtime-dir)/liborc_rt_osx.a output/20-liborc_rt_osx.a
+          cp $(/opt/homebrew/opt/llvm@21/bin/clang -print-runtime-dir)/liborc_rt_osx.a output/21-liborc_rt_osx.a
       - uses: actions/upload-artifact@v4
         with:
           name: liborc_rt
