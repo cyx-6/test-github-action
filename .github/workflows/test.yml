@@ -14,75 +14,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: ["x86_64"]
-        python-version: ["cp39", "cp310", "cp311", "cp312", "cp313", "cp314"]
-    runs-on: windows-latest
+        os: [ubuntu-latest, macos-latest]
+        llvm-version: ['18', '19', '20', '21', '22']
     steps:
-      - uses: actions/checkout@v5
-        with:
-          repository: cyx-6/tvm-ffi
-          ref: torch-c-dlpack-windows
-          fetch-depth: 0
-          submodules: recursive
-          path: tvm-ffi
-      - uses: Jimver/cuda-toolkit@6008063726ffe3309d1b22e413d9e88fed91a2f2
-        id: cuda-toolkit
-      - uses: astral-sh/setup-uv@v7
-      - name: build wheels
-        env:
-          CUDA_HOME: ${{steps.cuda-toolkit.outputs.CUDA_PATH}}
-        shell: cmd
-        working-directory: ./tvm-ffi
-        run: ./addons/torch_c_dlpack_ext/build_aot_wheels.bat ${{ matrix.arch }} ${{ matrix.python-version }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pypi-wheels-${{ matrix.arch }}-${{ matrix.python-version }}
-          path: ./tvm-ffi/addons/torch_c_dlpack_ext/wheelhouse/*.whl
-  build_source:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          repository: apache/tvm-ffi
-          ref: main
-          fetch-depth: 0
-          submodules: recursive
-          path: tvm-ffi
-      - uses: astral-sh/setup-uv@v7
-        with:
-          python-version: "3.12"
-          activate-environment: true
-      - name: build source
+      - name: Install LLVM (Ubuntu)
+        if: runner.os == 'Linux'
         run: |
-          uv pip install build
-          cd ./tvm-ffi/addons/torch_c_dlpack_ext
-          python -m build -s
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pypi-source
-          path: ./tvm-ffi/addons/torch_c_dlpack_ext/dist/*tar.gz
-  upload_pypi:
-    needs: [build_wheels_windows, build_source]
-    runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write
-      attestations: write
-    if: github.event_name == 'workflow_dispatch'   # <-- publish only on manual trigger
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: pypi-*
-          path: dist
-          merge-multiple: true
-      - name: Generate artifact attestation for sdist and wheels
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-path: dist/*
-      - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          attestations: true
-          verbose: true
-          # testing publish url
-          # repository-url: https://test.pypi.org/legacy/
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.llvm-version }}
+          sudo apt-get install -y clang-${{ matrix.llvm-version }}
+          echo "CC=clang-${{ matrix.llvm-version }}" >> $GITHUB_ENV
+          echo "CXX=clang++-${{ matrix.llvm-version }}" >> $GITHUB_ENV
+      - name: Install LLVM (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm@${{ matrix.llvm-version }}
+          echo "LLVM_DIR=$(brew --prefix llvm@${{ matrix.llvm-version }})" >> $GITHUB_ENV
+          echo "CC=$(brew --prefix llvm@${{ matrix.llvm-version }})/bin/clang" >> $GITHUB_ENV
+          echo "CXX=$(brew --prefix llvm@${{ matrix.llvm-version }})/bin/clang++" >> $GITHUB_ENV
+
+      - name: Collect liborc_rt
+        run: |
+          echo $(clang-${{ matrix.llvm-version }} -print-runtime-dir)
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: pypi-source
+      #     path: ./tvm-ffi/addons/torch_c_dlpack_ext/dist/*tar.gz
