@@ -13,8 +13,8 @@ jobs:
   collect_linux_orc_rt_libs:
     strategy:
       fail-fast: false
-    matrix:
-      arch: [x86_64, aarch64]
+      matrix:
+        arch: [x86_64, aarch64]
     runs-on: ${{ matrix.arch == 'x86_64' && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
     steps:
       - name: install and collect Linux orc_rt libs
