@@ -41,7 +41,10 @@ jobs:
       - name: Collect liborc_rt
         run: |
           echo $($CC -print-runtime-dir)
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: pypi-source
-      #     path: ./tvm-ffi/addons/torch_c_dlpack_ext/dist/*tar.gz
+          ls $($CC -print-runtime-dir)
+          mkdir ${{ matrix.os }}-${{ matrix.llvm-version }}
+          cp $($CC -print-runtime-dir)/liborc-rt*.a ./${{ matrix.os }}-${{ matrix.llvm-version }}/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}-${{ matrix.llvm-version }}
+          path: ./${{ matrix.os }}-${{ matrix.llvm-version }}
