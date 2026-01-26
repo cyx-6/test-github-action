@@ -37,7 +37,7 @@ jobs:
 
       - name: Collect liborc_rt
         run: |
-          echo $(clang-${{ matrix.llvm-version }} -print-runtime-dir)
+          echo $($CC -print-runtime-dir)
       # - uses: actions/upload-artifact@v4
       #   with:
       #     name: pypi-source
