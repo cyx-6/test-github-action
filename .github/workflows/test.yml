@@ -16,6 +16,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
         llvm-version: ['18', '19', '20', '21', '22']
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Install LLVM (Ubuntu)
         if: runner.os == 'Linux'
