@@ -21,7 +21,8 @@ jobs:
     steps:
       - name: Install LLVM and clang
         run: |
-          conda create -n build python=3.12 -y -q 
+          conda create -n build python=3.12 -y -q
+          conda init --all
           conda activate build
           conda install -c conda-forge llvmdev=22.1.0 clangdev=22.1.0 -y -q
           which clang clang++
