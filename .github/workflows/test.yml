@@ -19,12 +19,15 @@ jobs:
         # python-version: ['3.12']
 
     steps:
-      - name: Install LLVM and clang
+      - name: create cond env
         run: |
           conda create -n build python=3.12 -y -q
+          conda install -n build -c conda-forge llvmdev=22.1.0 clangdev=22.1.0 -y -q
           conda init --all
+
+      - name: create cond env
+        run: |
           conda activate build
-          conda install -c conda-forge llvmdev=22.1.0 clangdev=22.1.0 -y -q
           which clang clang++
           echo $CONDA
           ls $CONDA/envs/build/bin
