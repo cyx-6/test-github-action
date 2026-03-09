@@ -23,5 +23,8 @@ jobs:
         run: |
           conda create -n build python=3.12 -y -q
           conda install -n build -c conda-forge llvmdev=22.1.0 clangdev=22.1.0 -y -q
-          $CONDA/envs/build/bin/clang --version
-          $CONDA/envs/build/bin/clang++ --version
+          conda run -n build -- clang --version
+          conda run -n build -- clang++ --version
+          conda run -n build -- llvm-config --link-static --libfiles core orcjit support native
+          # $CONDA/envs/build/bin/clang --version
+          # $CONDA/envs/build/bin/clang++ --version
