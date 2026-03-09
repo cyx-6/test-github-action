@@ -10,46 +10,15 @@ on:
   push:
 
 jobs:
-  collect_linux_orc_rt_libs:
+  test:
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64]
-    runs-on: ${{ matrix.arch == 'x86_64' && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
+        os: [ubuntu-latest, macos-latest]
+        # python-version: ['3.12']
+
     steps:
-      - name: install and collect Linux orc_rt libs
+      - name: Install LLVM and clang
         run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo bash ./llvm.sh 18
-          sudo bash ./llvm.sh 19
-          sudo bash ./llvm.sh 20
-          sudo bash ./llvm.sh 21
-          sudo bash ./llvm.sh 22
-          mkdir output
-          cp /usr/lib/llvm-18/lib/clang/18/lib/linux/liborc_rt-${{ matrix.arch }}.a output/18-liborc_rt-${{ matrix.arch }}.a
-          cp /usr/lib/llvm-19/lib/clang/19/lib/linux/liborc_rt-${{ matrix.arch }}.a output/19-liborc_rt-${{ matrix.arch }}.a
-          cp /usr/lib/llvm-20/lib/clang/20/lib/linux/liborc_rt-${{ matrix.arch }}.a output/20-liborc_rt-${{ matrix.arch }}.a
-          cp /usr/lib/llvm-21/lib/clang/21/lib/linux/liborc_rt-${{ matrix.arch }}.a output/21-liborc_rt-${{ matrix.arch }}.a
-          cp /usr/lib/llvm-22/lib/clang/22/lib/linux/liborc_rt-${{ matrix.arch }}.a output/22-liborc_rt-${{ matrix.arch }}.a
-      - uses: actions/upload-artifact@v4
-        with:
-          name: liborc_rt-${{ matrix.arch }}
-          path: ./output/*.a
-  collect_macos_orc_rt_libs:
-    strategy:
-      fail-fast: false
-    runs-on: macos-latest
-    steps:
-      - name: install and collect macOS orc_rt libs
-        run: |
-          brew install llvm@18 llvm@19 llvm@20 llvm@21
-          mkdir output
-          cp $(/opt/homebrew/opt/llvm@18/bin/clang -print-runtime-dir)/liborc_rt_osx.a output/18-liborc_rt_osx.a
-          cp $(/opt/homebrew/opt/llvm@19/bin/clang -print-runtime-dir)/liborc_rt_osx.a output/19-liborc_rt_osx.a
-          cp $(/opt/homebrew/opt/llvm@20/bin/clang -print-runtime-dir)/liborc_rt_osx.a output/20-liborc_rt_osx.a
-          cp $(/opt/homebrew/opt/llvm@21/bin/clang -print-runtime-dir)/liborc_rt_osx.a output/21-liborc_rt_osx.a
-      - uses: actions/upload-artifact@v4
-        with:
-          name: liborc_rt-osx
-          path: ./output/*.a
+          conda install -y -c conda-forge llvmdev=22.1.0 clangdev=22.1.0
