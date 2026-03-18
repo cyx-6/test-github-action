@@ -133,7 +133,7 @@ jobs:
           foreach ($src in $Sources) {
               $obj = "$BuildDir\$($src -replace '\.cpp$', '.obj')"
               Write-Host "Compiling $src ..."
-              & $ClangCl /MD /O2 /D_HAS_EXCEPTIONS=0 /EHs-c- `
+              & $ClangCl /std:c++17 /MD /O2 /D_HAS_EXCEPTIONS=0 /EHs-c- `
                   /I"$OrcSrcDir" /I"$LibDir" /I"$IncludeDir" `
                   /c /o"$obj" "$OrcSrcDir\$src"
               if ($LASTEXITCODE -ne 0) { throw "Failed to compile $src" }
