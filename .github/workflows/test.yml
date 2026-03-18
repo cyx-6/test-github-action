@@ -15,16 +15,72 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [windows-latest]
         # python-version: ['3.12']
 
     steps:
-      - name: create cond env
+      - name: install llvm
+        shell: pwsh
         run: |
-          conda create -n build python=3.12 -y -q
-          conda install -n build -c conda-forge llvmdev=22.1.0 clangdev=22.1.0 -y -q
-          conda run -n build clang --version
-          conda run -n build clang++ --version
-          conda run -n build llvm-config --link-static --libfiles core orcjit support native
-          # $CONDA/envs/build/bin/clang --version
-          # $CONDA/envs/build/bin/clang++ --version
+          $ErrorActionPreference = "Stop"
+          Set-StrictMode -Version Latest
+
+          $Version = "22.1.0"
+          $Prefix = "C:\opt\llvm"
+
+          Write-Host "Installing LLVM $Version to $Prefix"
+
+          # Install micromamba
+          $MicromambaUrl = "https://micro.mamba.pm/api/micromamba/win-64/latest"
+          $MicromambaDir = "$env:TEMP\micromamba"
+          $MicromambaExe = "$MicromambaDir\Library\bin\micromamba.exe"
+
+          if (-not (Test-Path $MicromambaExe)) {
+              Write-Host "Downloading micromamba..."
+              New-Item -ItemType Directory -Path $MicromambaDir -Force | Out-Null
+              $tarball = "$env:TEMP\micromamba.tar.bz2"
+              Invoke-WebRequest -Uri $MicromambaUrl -OutFile $tarball
+              tar -xvjf $tarball -C $MicromambaDir
+              if (-not (Test-Path $MicromambaExe)) {
+                  throw "Failed to extract micromamba"
+              }
+          }
+          Write-Host "Using micromamba: $MicromambaExe"
+
+          # Create environment with LLVM
+          Write-Host "Creating conda environment with LLVM $Version..."
+          & $MicromambaExe create -p $Prefix -c conda-forge `
+              "llvmdev=$Version" "clangdev=$Version" "compiler-rt=$Version" `
+              zlib `
+              -y
+          if ($LASTEXITCODE -ne 0) { throw "micromamba create failed" }
+
+          # Build libzstd from source with CMake (MSVC static)
+          $ZstdVersion = "1.5.7"
+          $ZstdTarball = "$env:TEMP\zstd-$ZstdVersion.tar.gz"
+          $ZstdSrc = "$env:TEMP\zstd-$ZstdVersion"
+
+          Write-Host "Building zstd $ZstdVersion from source..."
+          if (-not (Test-Path $ZstdTarball)) {
+              Invoke-WebRequest -Uri "https://github.com/facebook/zstd/releases/download/v$ZstdVersion/zstd-$ZstdVersion.tar.gz" -OutFile $ZstdTarball
+          }
+          if (Test-Path $ZstdSrc) { Remove-Item -Recurse -Force $ZstdSrc }
+          tar -xzf $ZstdTarball -C $env:TEMP
+
+          $ZstdBuild = "$env:TEMP\_zstd_build"
+          if (Test-Path $ZstdBuild) { Remove-Item -Recurse -Force $ZstdBuild }
+
+          cmake -S "$ZstdSrc\build\cmake" -B $ZstdBuild `
+              -DCMAKE_INSTALL_PREFIX="$Prefix" `
+              -DZSTD_BUILD_SHARED=OFF -DZSTD_BUILD_STATIC=ON `
+              -DZSTD_BUILD_PROGRAMS=OFF
+          if ($LASTEXITCODE -ne 0) { throw "zstd cmake configure failed" }
+
+          cmake --build $ZstdBuild --config Release --target install -j $env:NUMBER_OF_PROCESSORS
+          if ($LASTEXITCODE -ne 0) { throw "zstd build failed" }
+
+          # Cleanup
+          Remove-Item -Recurse -Force $ZstdSrc -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force $ZstdBuild -ErrorAction SilentlyContinue
+
+          Write-Host "LLVM $Version installed to $Prefix"
