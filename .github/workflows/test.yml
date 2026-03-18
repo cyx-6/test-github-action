@@ -16,9 +16,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest]
-        # python-version: ['3.12']
 
     steps:
+      - uses: actions/checkout@v5
+
       - name: install llvm
         shell: pwsh
         run: |
@@ -84,3 +85,171 @@ jobs:
           Remove-Item -Recurse -Force $ZstdBuild -ErrorAction SilentlyContinue
 
           Write-Host "LLVM $Version installed to $Prefix"
+
+      - name: run orc tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $LLVMPrefix = "C:\opt\llvm"
+          $BinDir = "$LLVMPrefix\Library\bin"
+          $Clang = "$BinDir\clang.exe"
+          $JitLink = "$BinDir\llvm-jitlink.exe"
+          $FileCheck = "$BinDir\FileCheck.exe"
+          $TestDir = "$env:GITHUB_WORKSPACE\tests\orc\windows\x86-64"
+          $TmpDir = "$env:TEMP\orc-tests"
+          New-Item -ItemType Directory -Path $TmpDir -Force | Out-Null
+
+          # Find ORC runtime
+          $RuntimeDir = & $Clang -print-runtime-dir 2>$null
+          $OrcRt = Get-ChildItem -Path $RuntimeDir -Filter "orc_rt*.lib" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $OrcRt) {
+              # Fallback: search under the LLVM prefix
+              $OrcRt = Get-ChildItem -Path $LLVMPrefix -Filter "liborc_rt*.a" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+          if (-not $OrcRt) { throw "Could not find ORC runtime library" }
+          $OrcRtPath = $OrcRt.FullName
+          Write-Host "ORC runtime: $OrcRtPath"
+
+          $JitLinkBase = "$JitLink -orc-runtime=$OrcRtPath -no-process-syms=true -slab-allocate=64MB"
+          $ClangCl = "$Clang --driver-mode=cl"
+
+          $Passed = 0
+          $Failed = 0
+          $Errors = @()
+
+          function Run-Test {
+              param([string]$Name, [string]$CompileCmd, [string]$RunCmd, [string[]]$ExpectedLines)
+
+              Write-Host "`n=== TEST: $Name ==="
+              Write-Host "Compile: $CompileCmd"
+              Invoke-Expression $CompileCmd
+              if ($LASTEXITCODE -ne 0) {
+                  $script:Failed++
+                  $script:Errors += "$Name (compile failed)"
+                  Write-Host "FAIL: $Name (compile failed)"
+                  return
+              }
+
+              Write-Host "Run: $RunCmd"
+              $output = Invoke-Expression "$RunCmd 2>&1" | Out-String
+              $exitCode = $LASTEXITCODE
+              Write-Host "Exit code: $exitCode"
+              Write-Host "Output:`n$output"
+
+              if ($ExpectedLines -and $ExpectedLines.Count -gt 0) {
+                  $outputLines = $output.Trim() -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+                  $match = $true
+                  for ($i = 0; $i -lt $ExpectedLines.Count; $i++) {
+                      if ($i -ge $outputLines.Count -or $outputLines[$i] -ne $ExpectedLines[$i]) {
+                          $match = $false
+                          Write-Host "MISMATCH at line $i : expected '$($ExpectedLines[$i])', got '$($outputLines[$i])'"
+                          break
+                      }
+                  }
+                  if (-not $match) {
+                      $script:Failed++
+                      $script:Errors += "$Name (output mismatch)"
+                      Write-Host "FAIL: $Name"
+                      return
+                  }
+              } elseif ($exitCode -ne 0) {
+                  $script:Failed++
+                  $script:Errors += "$Name (exit code $exitCode)"
+                  Write-Host "FAIL: $Name"
+                  return
+              }
+
+              $script:Passed++
+              Write-Host "PASS: $Name"
+          }
+
+          # 1. hello-world.c
+          Run-Test "hello-world.c" `
+              "$ClangCl -MD -c -o $TmpDir\hello-world.obj $TestDir\hello-world.c" `
+              "$JitLinkBase $TmpDir\hello-world.obj" `
+              @("Hello, world!")
+
+          # 2. hello-world.cpp
+          Run-Test "hello-world.cpp" `
+              "$ClangCl -MD -c -o $TmpDir\hello-world-cpp.obj $TestDir\hello-world.cpp" `
+              "$JitLinkBase $TmpDir\hello-world-cpp.obj" `
+              @("Hello, world!")
+
+          # 3. trivial-atexit.c
+          Run-Test "trivial-atexit.c" `
+              "$ClangCl -MD -c -o $TmpDir\trivial-atexit.obj $TestDir\trivial-atexit.c" `
+              "$JitLinkBase $TmpDir\trivial-atexit.obj" `
+              @("Entering main", "Meow")
+
+          # 4. priority-static-initializer.c
+          Run-Test "priority-static-initializer.c" `
+              "$ClangCl -MD -c -o $TmpDir\priority-static-init.obj $TestDir\priority-static-initializer.c" `
+              "$JitLinkBase $TmpDir\priority-static-init.obj" `
+              @("init1", "init2")
+
+          # 5. priority-static-initializer-three.c
+          Run-Test "priority-static-initializer-three.c" `
+              "$ClangCl -MD -c -o $TmpDir\priority-static-init-three.obj $TestDir\priority-static-initializer-three.c" `
+              "$JitLinkBase $TmpDir\priority-static-init-three.obj" `
+              @("init1", "init2", "init3")
+
+          # 6. static-initializer.cpp (exit code 0 means success)
+          Run-Test "static-initializer.cpp" `
+              "$ClangCl -MD -c -o $TmpDir\static-init-cpp.obj $TestDir\static-initializer.cpp" `
+              "$JitLinkBase $TmpDir\static-init-cpp.obj" `
+              @()
+
+          # 7. static-initializer.S (exit code 0 means success)
+          Run-Test "static-initializer.S" `
+              "$Clang -c -o $TmpDir\static-init-asm.obj $TestDir\static-initializer.S" `
+              "$JitLinkBase $TmpDir\static-init-asm.obj" `
+              @()
+
+          # 8. sehframe-handling.cpp (exit code 0 means success)
+          Run-Test "sehframe-handling.cpp" `
+              "$ClangCl -EHsc -MD -c -o $TmpDir\sehframe.obj $TestDir\sehframe-handling.cpp" `
+              "$JitLinkBase $TmpDir\sehframe.obj" `
+              @()
+
+          # 9. trivial-jit-dlopen.c (needs standalone-dylib.c compiled separately)
+          Write-Host "`n=== TEST: trivial-jit-dlopen.c ==="
+          $compileInits = "$ClangCl -MD -c -o $TmpDir\standalone-dylib.obj $TestDir\Inputs\standalone-dylib.c"
+          $compileMain = "$ClangCl -MD -c -o $TmpDir\trivial-jit-dlopen.obj $TestDir\trivial-jit-dlopen.c"
+          Write-Host "Compile inits: $compileInits"
+          Invoke-Expression $compileInits
+          if ($LASTEXITCODE -ne 0) { $Failed++; $Errors += "trivial-jit-dlopen.c (compile inits failed)"; Write-Host "FAIL: trivial-jit-dlopen.c (compile inits)" }
+          else {
+              Write-Host "Compile main: $compileMain"
+              Invoke-Expression $compileMain
+              if ($LASTEXITCODE -ne 0) { $Failed++; $Errors += "trivial-jit-dlopen.c (compile main failed)"; Write-Host "FAIL: trivial-jit-dlopen.c (compile main)" }
+              else {
+                  $runCmd = "$JitLinkBase -alias Platform:dlopen=__orc_rt_coff_jit_dlopen -alias Platform:dlclose=__orc_rt_coff_jit_dlclose $TmpDir\trivial-jit-dlopen.obj -jd inits $TmpDir\standalone-dylib.obj -lmain"
+                  Write-Host "Run: $runCmd"
+                  $output = Invoke-Expression "$runCmd 2>&1" | Out-String
+                  Write-Host "Exit code: $LASTEXITCODE"
+                  Write-Host "Output:`n$output"
+                  $outputLines = $output.Trim() -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+                  $expected = @("entering main", "constructor", "destructor", "leaving main")
+                  $match = $true
+                  for ($i = 0; $i -lt $expected.Count; $i++) {
+                      if ($i -ge $outputLines.Count -or $outputLines[$i] -ne $expected[$i]) {
+                          $match = $false
+                          Write-Host "MISMATCH at line $i : expected '$($expected[$i])', got '$($outputLines[$i])'"
+                          break
+                      }
+                  }
+                  if ($match) { $Passed++; Write-Host "PASS: trivial-jit-dlopen.c" }
+                  else { $Failed++; $Errors += "trivial-jit-dlopen.c (output mismatch)"; Write-Host "FAIL: trivial-jit-dlopen.c" }
+              }
+          }
+
+          # Summary
+          Write-Host "`n========================================="
+          Write-Host "ORC Test Results: $Passed passed, $Failed failed out of $($Passed + $Failed) tests"
+          if ($Errors.Count -gt 0) {
+              Write-Host "Failed tests:"
+              $Errors | ForEach-Object { Write-Host "  - $_" }
+              exit 1
+          }
+          Write-Host "All tests passed!"
