@@ -111,7 +111,7 @@ jobs:
           $OrcRtPath = $OrcRt.FullName
           Write-Host "ORC runtime: $OrcRtPath"
 
-          $JitLinkBase = "$JitLink -orc-runtime=$OrcRtPath -no-process-syms=true -slab-allocate=64MB"
+          $JitLinkBase = "$JitLink -orc-runtime=$OrcRtPath -slab-allocate=64MB"
           $ClangCl = "$Clang --driver-mode=cl"
 
           $Passed = 0
